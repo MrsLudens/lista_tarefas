@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /usuarios/{usuarioId}/tarefas/{tarefaId} {
+      function dono() {
+        return request.auth != null && request.auth.uid == usuarioId;
+      }
+      function tarefaValida() {
+        let tarefa = request.resource.data;
+        return tarefa.keys().hasAll(['titulo', 'concluida', 'criadaEm'])
+          && tarefa.keys().hasOnly(['titulo', 'concluida', 'criadaEm'])
+          && tarefa.titulo is string
+          && tarefa.titulo.size() > 0 && tarefa.titulo.size() <= 120
+          && tarefa.concluida is bool
+          && tarefa.criadaEm is timestamp;
+      }
+      allow read, delete: if dono();
+      allow create: if dono() && tarefaValida()
+        && request.resource.data.concluida == false
+        && request.resource.data.criadaEm == request.time;
+      allow update: if dono() && tarefaValida()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['concluida']);
+    }
+  }
+}
